@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:app_school/config/supabase_config.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../constants/colors.dart';
 import '../../../models/quiz.dart';
@@ -25,62 +29,102 @@ class StudentQuizScreen extends StatefulWidget {
 }
 
 class _StudentQuizScreenState extends State<StudentQuizScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Student Quiz Screen'),
-      ),
-      body: const Center(
-        child: Text('Quiz Screen Content'),
-      ),
-    );
-  }
-}
-
-/* class _StudentQuizScreenState extends State<StudentQuizScreen> {
-  /* final _supabase = Supabase.instance.client;
+final _supabase = SupabaseConfig.client;
+final Map<int, TextEditingController> _answerControllers = {};
   late Quiz quiz;
   bool _isLoading = true;
   int _currentQuestionIndex = 0;
   final List<String?> _userAnswers = [];
+  DateTime? _startTime;
 
   @override
   void initState() {
     super.initState();
+    _startTime = DateTime.now();
     _loadQuizData();
   }
 
   Future<void> _loadQuizData() async {
     try {
-      final quizData = await _supabase.from('quizzes').select('''
-           *,
-           questions:questions(
-             *,
-             answers:answers(*)
-           )
-         ''').eq('id', widget.quizId).single();
+      final quizData = await _supabase
+          .from('quizzes')
+          .select('''
+          id,
+          module_id,
+          title,
+          time_limit,
+          time_unit,
+          passing_score,
+          is_active,
+          created_at,
+          questions(
+            id,
+            quiz_id,
+            question_text,
+            question_type,
+            answer,
+            points,
+            choices,
+            created_at
+          )
+        ''')
+        .eq('id', widget.quizId)
+        .single();
 
+           // Correction du parsing des questions et leurs choix
+    final questions = (quizData['questions'] as List).map((q) {
+      // Gestion correcte du champ choices qui est un JSONB
+      List<String> choicesList = [];
+      if (q['choices'] != null) {
+        if (q['choices'] is String) {
+          // Si c'est une chaîne JSON
+          choicesList = List<String>.from(jsonDecode(q['choices']));
+        } else if (q['choices'] is List) {
+          // Si c'est déjà une liste
+          choicesList = List<String>.from(q['choices']);
+        }
+      }
+      return Question(
+        id: q['id'],
+        quizId: q['quiz_id'],
+        questionText: q['question_text'],
+        questionType: q['question_type'],
+        answer: q['answer'],
+        points: q['points'],
+        choices: choicesList,
+        createdAt: DateTime.parse(q['created_at']),
+      );
+    }).toList();
+
+    if (questions.isEmpty) {
       setState(() {
-        quiz = Quiz(
-          title: quizData['title'],
-          description: quizData['description'],
-          questions: (quizData['questions'] as List)
-              .map((q) => Question(
-                    id: q['id'],
-                    text: q['text'],
-                    answers: (q['answers'] as List)
-                        .map((a) => Answer(
-                              text: a['text'],
-                              isCorrect: a['is_correct'],
-                            ))
-                        .toList(),
-                  ))
-              .toList(), moduleId: '', timeLimit: null,
-        );
-        _userAnswers.addAll(List.filled(quiz.questions.length, null));
         _isLoading = false;
       });
+      if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ce quiz ne contient aucune question.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.pop(context);
+        }
+        return;
+    }
+
+      setState(() {
+      quiz = Quiz(
+        id: quizData['id'],
+        moduleId: quizData['module_id'],
+        title: quizData['title'],
+        timeLimit: quizData['time_limit'],
+        timeUnit: quizData['time_unit'],
+        passingScore: quizData['passing_score'],
+        questions: questions,
+      );
+      _userAnswers.addAll(List.filled(questions.length, null));
+      _isLoading = false;
+    });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -142,25 +186,49 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
 
   Future<void> _saveQuizAttempt() async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      // Récupérer l'ID utilisateur connecté
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('connected_user_id');
       if (userId == null) throw Exception('Utilisateur non connecté');
 
-      final attemptResponse = await _supabase
+      final studentData = await _supabase
+        .from('students')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+    
+    if (studentData == null) {
+      throw Exception('Profil étudiant non trouvé');
+    }
+
+    final studentId = studentData['id'];
+
+      final score = _calculateScore();
+
+      final attemptData = await _supabase
           .from('quiz_attempts')
           .insert({
             'quiz_id': widget.quizId,
-            'student_id': userId,
-            'score': _calculateScore(),
+            'student_id': studentId,
+            'start_time': _startTime!.toIso8601String(),
+            'end_time': DateTime.now().toIso8601String(),
+            'score': score,
+            'is_completed': true,
           })
           .select()
           .single();
 
       for (var i = 0; i < _userAnswers.length; i++) {
         if (_userAnswers[i] != null) {
+          // Normaliser les réponses pour la comparaison
+        final isCorrect = _verifyAnswer(_userAnswers[i]!, quiz.questions[i]);
+
           await _supabase.from('question_responses').insert({
-            'attempt_id': attemptResponse['id'],
+            'attempt_id': attemptData['id'],
             'question_id': quiz.questions[i].id,
-            'answer_text': _userAnswers[i],
+            'student_answer': _userAnswers[i],
+            'is_correct': isCorrect,
+            'points_earned': isCorrect ? quiz.questions[i].points : 0,
           });
         }
       }
@@ -173,19 +241,38 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
     }
   }
 
-  int _calculateScore() {
-    int score = 0;
-    for (var i = 0; i < quiz.questions.length; i++) {
-      if (_userAnswers[i] != null) {
-        final correctAnswer =
-            quiz.questions?[i].answer.firstWhere((answer) => answer.isCorrect);
-        if (_userAnswers[i] == correctAnswer.text) {
-          score++;
-        }
+  int _calculateCorrectAnswers() {
+  int correctAnswers = 0;
+  for (var i = 0; i < quiz.questions.length; i++) {
+    if (_userAnswers[i] != null) {
+      final userAnswer = _userAnswers[i]?.trim().toLowerCase() ?? '';
+      final correctAnswer = quiz.questions[i].answer.trim().toLowerCase();
+      if (userAnswer == correctAnswer) {
+        correctAnswers++;
       }
     }
-    return score;
   }
+  return correctAnswers;
+}
+
+  int _calculateScore() {
+  int totalPoints = 0;
+  int earnedPoints = 0;
+
+  for (var i = 0; i < quiz.questions.length; i++) {
+    if (_userAnswers[i] != null) {
+      final userAnswer = _userAnswers[i]?.trim().toLowerCase() ?? '';
+      final correctAnswer = quiz.questions[i].answer.trim().toLowerCase();
+      
+      if (userAnswer == correctAnswer) {
+        earnedPoints += quiz.questions[i].points;
+      }
+      totalPoints += quiz.questions[i].points;
+    }
+  }
+
+  return totalPoints > 0 ? (earnedPoints * 100 ~/ totalPoints) : 0;
+}
 
   void _showResults() async {
     await _saveQuizAttempt();
@@ -196,15 +283,14 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => QuizResultScreen(
-          score: score,
+          correctAnswers: _calculateCorrectAnswers(),
           totalQuestions: quiz.questions.length,
-          userName: _supabase.auth.currentUser?.userMetadata?['name'] ??
-              "Utilisateur",
           onReturnPressed: () => Navigator.pop(context),
         ),
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -259,24 +345,18 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
   Widget _buildQuestionCard(Question question) {
     return Card(
       margin: const EdgeInsets.all(20),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Question : ${_currentQuestionIndex + 1}/${quiz.questions.length}',
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 16,
-              ),
+              'Question ${_currentQuestionIndex + 1}/${quiz.questions.length}',
+              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 20),
             Text(
-              question.text,
+              question.questionText,
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -290,42 +370,105 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
     );
   }
 
+  bool _verifyAnswer(String userAnswer, Question question) {
+    final normalizedUserAnswer = userAnswer.trim().toLowerCase();
+    final normalizedCorrectAnswer = question.answer.trim().toLowerCase();
+
+    switch (question.questionType) {
+      case 'trueFalse':
+        return normalizedUserAnswer == normalizedCorrectAnswer;
+      case 'singleAnswer':
+        return normalizedUserAnswer == normalizedCorrectAnswer;
+      case 'selection':
+        // Pour les questions à choix multiples
+        final userChoices = normalizedUserAnswer.split(',').map((e) => e.trim()).toSet();
+        final correctChoices = normalizedCorrectAnswer.split(',').map((e) => e.trim()).toSet();
+        return userChoices.difference(correctChoices).isEmpty && 
+               correctChoices.difference(userChoices).isEmpty;
+      default:
+        return false;
+    }
+  }
+
   Widget _buildAnswerOptions(Question question) {
-    return Column(
-      children: question.answers.map((answer) {
-        final isSelected = _userAnswers[_currentQuestionIndex] == answer.text;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: ElevatedButton(
-            onPressed: () => _handleSelection(answer.text),
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  isSelected ? AppColors.primaryBlue : Colors.white,
-              foregroundColor: isSelected ? Colors.white : Colors.black87,
-              elevation: 0,
-              side: BorderSide(
-                color:
-                    isSelected ? AppColors.primaryBlue : Colors.grey.shade300,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 15,
-              ),
-              minimumSize: const Size(double.infinity, 50),
-            ),
-            child: Text(
-              answer.text,
-              style: TextStyle(
-                fontSize: 16,
-                color: isSelected ? Colors.white : Colors.black87,
-              ),
-            ),
-          ),
+    switch (question.questionType) {
+      case 'trueFalse':
+        return Column(
+          children: ['Vrai', 'Faux'].map((option) {
+            final isSelected = _userAnswers[_currentQuestionIndex] == option;
+            return _buildAnswerButton(option, isSelected);
+          }).toList(),
         );
-      }).toList(),
+      case 'singleAnswer':
+      _answerControllers.putIfAbsent(
+          _currentQuestionIndex,
+          () => TextEditingController(text: _userAnswers[_currentQuestionIndex] ?? ''),
+        );
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: TextField(
+          controller: _answerControllers[_currentQuestionIndex],
+          decoration: InputDecoration(
+            hintText: 'Saisissez votre réponse',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+          textAlign: TextAlign.left,
+          textDirection: TextDirection.ltr,
+          onChanged: (value) {
+            setState(() {
+              _userAnswers[_currentQuestionIndex] = value;
+            });
+          },
+        ),
+      );
+      case 'selection':
+        return Column(
+          children: question.choices.map((choice) {
+            final selectedAnswers = _userAnswers[_currentQuestionIndex]?.split(',') ?? [];
+            final isSelected = selectedAnswers.contains(choice);
+            return CheckboxListTile(
+              title: Text(choice),
+              value: isSelected,
+              onChanged: (bool? value) {
+                setState(() {
+                  List<String> currentAnswers = 
+                      _userAnswers[_currentQuestionIndex]?.split(',') ?? [];
+                  if (value ?? false) {
+                    currentAnswers.add(choice);
+                  } else {
+                    currentAnswers.remove(choice);
+                  }
+                  _userAnswers[_currentQuestionIndex] = 
+                      currentAnswers.where((e) => e.isNotEmpty).join(',');
+                });
+              },
+            );
+          }).toList(),
+        );
+      default:
+        return const Text('Type de question non supporté');
+    }
+  }
+
+  Widget _buildAnswerButton(String text, bool isSelected) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ElevatedButton(
+        onPressed: () => _handleSelection(text),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSelected ? AppColors.primaryBlue : Colors.white,
+          foregroundColor: isSelected ? Colors.white : Colors.black87,
+          minimumSize: const Size(double.infinity, 50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        child: Text(text),
+      ),
     );
   }
 
@@ -377,5 +520,13 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
         ],
       ),
     );
-  } */
-} */
+  }
+  @override
+  void dispose() {
+    // Nettoyer les controllers
+    for (var controller in _answerControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+}

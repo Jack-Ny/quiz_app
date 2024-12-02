@@ -152,4 +152,50 @@ class StudentStatsService {
       return null;
     }
   }
+
+  // recuperation des informations sur les cours
+  Future<List<Map<String, dynamic>>> getModulesWithContent(String courseId, String studentId) async {
+    try {
+      final modulesData = await supabase
+          .from('modules')
+          .select('''
+            *,
+            quizzes(
+              id,
+              title,
+              time_limit,
+              time_unit,
+              passing_score,
+              quiz_attempts(
+                id, 
+                is_completed,
+                score
+              )
+            ),
+            tps(
+              id,
+              title,
+              description,
+              due_date,
+              max_points,
+              file_urls,
+              tp_submissions(
+                id,
+                submitted_files,
+                grade,
+                submission_date
+              )
+            )
+          ''')
+          .eq('course_id', courseId)
+          .eq('is_active', true)
+          .eq('quizzes.quiz_attempts.student_id', studentId)
+          .eq('tps.tp_submissions.student_id', studentId)
+          .order('order_index');
+
+      return List<Map<String, dynamic>>.from(modulesData);
+    } catch (e) {
+      throw Exception('Erreur lors du chargement des modules: $e');
+    }
+  }
 }

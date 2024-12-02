@@ -68,7 +68,7 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pushReplacementNamed(context, '/student-dashboard'),
         ),
         title: const Text(
           'Mes Cours',

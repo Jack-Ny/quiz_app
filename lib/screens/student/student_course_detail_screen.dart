@@ -1,10 +1,10 @@
 import 'package:app_school/config/supabase_config.dart';
 import 'package:app_school/screens/student/quiz/student_quiz_screen.dart';
+import 'package:app_school/screens/student/tp/student_tp_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/colors.dart';
 import '../../services/student_stats_service.dart';
-import 'student_tp_screen.dart';
 
 class StudentCourseDetailScreen extends StatefulWidget {
   final String courseId;
@@ -23,6 +23,7 @@ class StudentCourseDetailScreen extends StatefulWidget {
 
 class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   final _supabase = SupabaseConfig.client;
+  final StudentStatsService _moduleService = StudentStatsService();
   bool _isLoading = true;
   final _studentStatsService = StudentStatsService();
   List<Map<String, dynamic>> _modules = [];
@@ -42,44 +43,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       }
 
       // Charger les modules
-      final modulesData = await _supabase
-          .from('modules')
-          .select('''
-          *,
-          quizzes:quizzes(
-            id,
-            title,
-            time_limit,
-            time_unit,
-            passing_score,
-            quiz_attempts!inner(
-              id, 
-              is_completed,
-              score,
-              student_id
-            )
-          ),
-          tps:tps(
-            id,
-            title,
-            description,
-            due_date,
-            max_points,
-            file_urls,
-            tp_submissions!inner(
-              id,
-              submitted_files,
-              grade,
-              submission_date,
-              student_id
-            )
-          )
-        ''')
-          .eq('course_id', widget.courseId)
-          .eq('is_active', true)
-          .eq('quizzes.quiz_attempts.student_id', studentId)
-          .eq('tps.tp_submissions.student_id', studentId)
-          .order('order_index');
+      final modulesData = await _moduleService.getModulesWithContent(widget.courseId, studentId);
 
       // Charger les tentatives de quiz et soumissions de TP
       final quizAttempts = await _supabase
@@ -93,7 +57,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
           .eq('student_id', studentId);
 
       setState(() {
-        _modules = List<Map<String, dynamic>>.from(modulesData);
+        _modules = modulesData;
         _calculateProgress(quizAttempts, tpSubmissions);
         _isLoading = false;
       });
@@ -155,7 +119,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
           MaterialPageRoute(
             builder: (context) => StudentTPScreen(
               moduleTitle: moduleTitle,
-              courseTitle: widget.courseTitle,
+              courseTitle: widget.courseTitle, tpId: contentId,
             ),
           ),
         );
@@ -261,32 +225,40 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Widget _buildModulesList() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: _modules.map((module) {
-          final quizzes =
-              List<Map<String, dynamic>>.from(module['quizzes'] ?? []);
-          final tps = List<Map<String, dynamic>>.from(module['tps'] ?? []);
+  if (_modules.isEmpty) {
+    return const Center(
+      child: Text('Aucun module disponible pour ce cours'),
+    );
+  }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                module['name'],
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryBlue,
-                ),
+  return ListView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: _modules.length,
+    itemBuilder: (context, index) {
+      final module = _modules[index];
+      final quizzes = List<Map<String, dynamic>>.from(module['quizzes'] ?? []);
+      final tps = List<Map<String, dynamic>>.from(module['tps'] ?? []);
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              module['name'],
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryBlue,
               ),
-              const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 12),
+            if (quizzes.isNotEmpty)
               ...quizzes.map((quiz) {
                 final attempts = List<Map<String, dynamic>>.from(
                     quiz['quiz_attempts'] ?? []);
-                final isCompleted =
-                    attempts.any((a) => a['is_completed'] == true);
+                final isCompleted = attempts.any((a) => a['is_completed'] == true);
 
                 return _buildContentItem(
                   quiz['id'],
@@ -297,9 +269,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                   quiz,
                 );
               }),
+            if (tps.isNotEmpty)
               ...tps.map((tp) {
-                final submissions =
-                    List<Map<String, dynamic>>.from(tp['tp_submissions'] ?? []);
+                final submissions = List<Map<String, dynamic>>.from(
+                    tp['tp_submissions'] ?? []);
                 final isSubmitted = submissions.isNotEmpty;
 
                 return _buildContentItem(
@@ -311,13 +284,13 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                   tp,
                 );
               }),
-              const SizedBox(height: 24),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
+            const SizedBox(height: 16),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildContentItem(
     String id,

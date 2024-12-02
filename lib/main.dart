@@ -20,7 +20,6 @@ import 'package:app_school/screens/student/student_courses_screen.dart';
 import 'package:app_school/screens/student/student_dashboard.dart';
 import 'package:app_school/screens/student/student_profile_screen.dart';
 import 'package:app_school/screens/student/student_ranks_screen.dart';
-import 'package:app_school/screens/student/student_tp_screen.dart';
 import 'package:app_school/screens/student/student_xcode_screen.dart';
 import 'package:app_school/screens/xcode/xcode_screen.dart';
 import 'package:app_school/config/supabase_config.dart';
