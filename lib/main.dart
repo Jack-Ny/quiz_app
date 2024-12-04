@@ -1,3 +1,4 @@
+import 'package:app_school/screens/teacher/teacher_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Provider;
@@ -145,6 +146,8 @@ class MyApp extends StatelessWidget {
               courseTitle: args['courseTitle'],
             );
           }, */
+
+          '/teacher-dashboard': (context) => const TeacherDashboard(),
         },
         onUnknownRoute: (settings) {
           return MaterialPageRoute(

@@ -56,16 +56,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
+    final double circleSize =
+        screenSize.width * 0.6 > 300 ? 300 : screenSize.width * 0.6;
 
     return Scaffold(
       backgroundColor: AppColors.primaryBlue,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment
+              .center, // Ensure center alignment on larger screens
           children: [
             Container(
-              width: screenSize.width * 0.6,
-              height: screenSize.width * 0.6,
+              width: circleSize,
+              height: circleSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -77,18 +81,18 @@ class _SplashScreenState extends State<SplashScreen> {
                 alignment: Alignment.center,
                 children: [
                   Positioned(
-                    top: 20,
-                    right: 30,
+                    top: circleSize * 0.1,
+                    right: circleSize * 0.15,
                     child: _buildDecorationDot(8),
                   ),
                   Positioned(
-                    top: 15,
-                    right: 50,
+                    top: circleSize * 0.1,
+                    right: circleSize * 0.2,
                     child: _buildDecorationDot(12),
                   ),
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: circleSize * 0.25,
+                    height: circleSize * 0.25,
                     decoration: BoxDecoration(
                       color: AppColors.white,
                       borderRadius: BorderRadius.circular(12),

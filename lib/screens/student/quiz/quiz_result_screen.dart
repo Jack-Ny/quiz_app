@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../constants/colors.dart';
+import '../../../services/student_stats_service.dart';
 
 class QuizResultScreen extends StatefulWidget {
   final int correctAnswers;
@@ -16,10 +17,9 @@ class QuizResultScreen extends StatefulWidget {
 
   @override
   State<QuizResultScreen> createState() => _QuizResultScreenState();
-
 }
 
-class _QuizResultScreenState extends State<QuizResultScreen> 
+class _QuizResultScreenState extends State<QuizResultScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -41,14 +41,11 @@ class _QuizResultScreenState extends State<QuizResultScreen>
   }
 
   Future<void> _loadUserName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('connected_user_id');
-    if (userId != null) {
-      final userName = prefs.getString('user_name') ?? 'Étudiant';
-      setState(() {
-        _userName = userName;
-      });
-    }
+    final studentStatsService = StudentStatsService();
+    final name = await studentStatsService.getCurrentStudentName();
+    setState(() {
+      _userName = name ?? 'Étudiant';
+    });
   }
 
   @override
@@ -60,9 +57,11 @@ class _QuizResultScreenState extends State<QuizResultScreen>
   @override
   Widget build(BuildContext context) {
     final percentage = (widget.correctAnswers / widget.totalQuestions) * 100;
-    final resultColor = percentage >= 75 ? Colors.green 
-                     : percentage >= 50 ? Colors.orange 
-                     : Colors.red;
+    final resultColor = percentage >= 75
+        ? Colors.green
+        : percentage >= 50
+            ? Colors.orange
+            : Colors.red;
 
     return Scaffold(
       body: Container(
@@ -123,9 +122,11 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                 ),
                 const SizedBox(height: 40),
                 Text(
-                  percentage >= 75 ? 'Excellent !' 
-                  : percentage >= 50 ? 'Bien joué !' 
-                  : 'Continue tes efforts !',
+                  percentage >= 75
+                      ? 'Excellent !'
+                      : percentage >= 50
+                          ? 'Bien joué !'
+                          : 'Continue tes efforts !',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -135,11 +136,10 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                 const SizedBox(height: 20),
                 Text(
                   'Bravo $_userName !',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey,
-                  ),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
                 ),
                 const SizedBox(height: 50),
                 ElevatedButton(

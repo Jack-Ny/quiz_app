@@ -153,8 +153,28 @@ class StudentStatsService {
     }
   }
 
+  Future<String?> getCurrentStudentName() async {
+    try {
+      // Récupérer l'ID utilisateur depuis SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('connected_user_id');
+
+      if (userId == null) return null;
+
+      // Récupérer le nom de l'utilisateur depuis Supabase
+      final userData =
+          await supabase.from('users').select('name').eq('id', userId).single();
+
+      return userData['name'] ?? 'Étudiant';
+    } catch (e) {
+      print('Erreur lors de la récupération du nom de l\'étudiant: $e');
+      return 'Étudiant';
+    }
+  }
+
   // recuperation des informations sur les cours
-  Future<List<Map<String, dynamic>>> getModulesWithContent(String courseId, String studentId) async {
+  Future<List<Map<String, dynamic>>> getModulesWithContent(
+      String courseId, String studentId) async {
     try {
       final modulesData = await supabase
           .from('modules')

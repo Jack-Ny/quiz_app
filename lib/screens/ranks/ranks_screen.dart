@@ -100,63 +100,72 @@ class _RanksScreenState extends State<RanksScreen> {
                     ],
                   ),
                 )
-              : Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      height: 450,
-                      child: Stack(
-                        alignment: Alignment.center,
+              : CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Column(
                         children: [
-                          // Podium
-                          Positioned(
-                            bottom: 0,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                          // Podium and Top 3 Section
+                          SizedBox(
+                            height: 300,
+                            width: double.infinity,
+                            child: Stack(
+                              alignment: Alignment.center,
                               children: [
-                                _buildPodiumStep(
-                                    '2', 120, Colors.indigo.shade100),
-                                const SizedBox(width: 2),
-                                _buildPodiumStep(
-                                    '1', 160, Colors.indigo.shade100),
-                                const SizedBox(width: 2),
-                                _buildPodiumStep(
-                                    '3', 80, Colors.indigo.shade100),
+                                // Podium
+                                Positioned(
+                                  bottom: 0,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      _buildPodiumStep(
+                                          '2', 120, Colors.indigo.shade100),
+                                      const SizedBox(width: 2),
+                                      _buildPodiumStep(
+                                          '1', 160, Colors.indigo.shade100),
+                                      const SizedBox(width: 2),
+                                      _buildPodiumStep(
+                                          '3', 80, Colors.indigo.shade100),
+                                    ],
+                                  ),
+                                ),
+                                // Top 3 students
+                                if (_ranks.length > 1)
+                                  Positioned(
+                                    left: 20,
+                                    bottom: 140,
+                                    child: _buildTopThreeItem(_ranks[1], 180),
+                                  ),
+                                if (_ranks.isNotEmpty)
+                                  Positioned(
+                                    bottom: 180,
+                                    child: _buildTopThreeItem(_ranks[0], 220),
+                                  ),
+                                if (_ranks.length > 2)
+                                  Positioned(
+                                    right: 20,
+                                    bottom: 100,
+                                    child: _buildTopThreeItem(_ranks[2], 160),
+                                  ),
                               ],
                             ),
                           ),
-                          // Top 3 students
-                          if (_ranks.length > 1)
-                            Positioned(
-                              left: 20,
-                              bottom: 140,
-                              child: _buildTopThreeItem(_ranks[1], 180),
-                            ),
-                          if (_ranks.isNotEmpty)
-                            Positioned(
-                              bottom: 180,
-                              child: _buildTopThreeItem(_ranks[0], 220),
-                            ),
-                          if (_ranks.length > 2)
-                            Positioned(
-                              right: 20,
-                              bottom: 100,
-                              child: _buildTopThreeItem(_ranks[2], 160),
-                            ),
+                          const SizedBox(height: 20),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
                     // Autres rangs
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: _ranks.length > 3 ? _ranks.length - 3 : 0,
-                        itemBuilder: (context, index) {
-                          final rank = _ranks[index + 3];
-                          return _buildRankListItem(rank, index + 4);
-                        },
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final rank = _ranks[index + 3];
+                            return _buildRankListItem(rank, index + 4);
+                          },
+                          childCount: _ranks.length > 3 ? _ranks.length - 3 : 0,
+                        ),
                       ),
                     ),
                   ],

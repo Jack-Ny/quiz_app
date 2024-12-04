@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import 'module.dart';
@@ -15,7 +16,7 @@ class TP {
   bool isActive;
   DateTime createdAt;
   List<String> fileUrls;
-  List<File>? files;
+  List<PlatformFile>? files;
 
   // Relations
   Module? module;
@@ -80,7 +81,7 @@ class TP {
     bool? isActive,
     DateTime? createdAt,
     List<String>? fileUrls,
-    List<File>? files,
+    List<PlatformFile>? files,
     Module? module,
     List<TPSubmission>? submissions,
   }) {

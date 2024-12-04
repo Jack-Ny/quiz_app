@@ -186,7 +186,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
 
-            Expanded(
+            /* Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
@@ -263,7 +263,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ],
                 ),
               ),
-            ),
+            ), */
           ],
         ),
       ),

@@ -43,7 +43,8 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       }
 
       // Charger les modules
-      final modulesData = await _moduleService.getModulesWithContent(widget.courseId, studentId);
+      final modulesData = await _moduleService.getModulesWithContent(
+          widget.courseId, studentId);
 
       // Charger les tentatives de quiz et soumissions de TP
       final quizAttempts = await _supabase
@@ -119,7 +120,8 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
           MaterialPageRoute(
             builder: (context) => StudentTPScreen(
               moduleTitle: moduleTitle,
-              courseTitle: widget.courseTitle, tpId: contentId,
+              courseTitle: widget.courseTitle,
+              tpId: contentId,
             ),
           ),
         );
@@ -225,72 +227,74 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Widget _buildModulesList() {
-  if (_modules.isEmpty) {
-    return const Center(
-      child: Text('Aucun module disponible pour ce cours'),
+    if (_modules.isEmpty) {
+      return const Center(
+        child: Text('Aucun module disponible pour ce cours'),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _modules.length,
+      itemBuilder: (context, index) {
+        final module = _modules[index];
+        final quizzes =
+            List<Map<String, dynamic>>.from(module['quizzes'] ?? []);
+        final tps = List<Map<String, dynamic>>.from(module['tps'] ?? []);
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                module['name'],
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (quizzes.isNotEmpty)
+                ...quizzes.map((quiz) {
+                  final attempts = List<Map<String, dynamic>>.from(
+                      quiz['quiz_attempts'] ?? []);
+                  final isCompleted =
+                      attempts.any((a) => a['is_completed'] == true);
+
+                  return _buildContentItem(
+                    quiz['id'],
+                    quiz['title'],
+                    'quiz',
+                    isCompleted,
+                    module['name'],
+                    quiz,
+                  );
+                }),
+              if (tps.isNotEmpty)
+                ...tps.map((tp) {
+                  final submissions = List<Map<String, dynamic>>.from(
+                      tp['tp_submissions'] ?? []);
+                  final isSubmitted = submissions.isNotEmpty;
+
+                  return _buildContentItem(
+                    tp['id'],
+                    tp['title'],
+                    'tp',
+                    isSubmitted,
+                    module['name'],
+                    tp,
+                  );
+                }),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
-
-  return ListView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: _modules.length,
-    itemBuilder: (context, index) {
-      final module = _modules[index];
-      final quizzes = List<Map<String, dynamic>>.from(module['quizzes'] ?? []);
-      final tps = List<Map<String, dynamic>>.from(module['tps'] ?? []);
-
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              module['name'],
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primaryBlue,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (quizzes.isNotEmpty)
-              ...quizzes.map((quiz) {
-                final attempts = List<Map<String, dynamic>>.from(
-                    quiz['quiz_attempts'] ?? []);
-                final isCompleted = attempts.any((a) => a['is_completed'] == true);
-
-                return _buildContentItem(
-                  quiz['id'],
-                  quiz['title'],
-                  'quiz',
-                  isCompleted,
-                  module['name'],
-                  quiz,
-                );
-              }),
-            if (tps.isNotEmpty)
-              ...tps.map((tp) {
-                final submissions = List<Map<String, dynamic>>.from(
-                    tp['tp_submissions'] ?? []);
-                final isSubmitted = submissions.isNotEmpty;
-
-                return _buildContentItem(
-                  tp['id'],
-                  tp['title'],
-                  'tp',
-                  isSubmitted,
-                  module['name'],
-                  tp,
-                );
-              }),
-            const SizedBox(height: 16),
-          ],
-        ),
-      );
-    },
-  );
-}
 
   Widget _buildContentItem(
     String id,

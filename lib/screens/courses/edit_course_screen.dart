@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
-
 import '../../models/module.dart';
 import '../../models/question.dart';
 import '../../models/quiz.dart';
@@ -10,14 +8,16 @@ import '../../models/tp.dart';
 import '../../services/course_service.dart';
 import '../../services/user_service.dart';
 
-class AddCourseScreen extends StatefulWidget {
-  const AddCourseScreen({super.key});
+class EditCourseScreen extends StatefulWidget {
+  final String courseId;
+
+  const EditCourseScreen({Key? key, required this.courseId}) : super(key: key);
 
   @override
-  State<AddCourseScreen> createState() => _AddCourseScreenState();
+  State<EditCourseScreen> createState() => _EditCourseScreenState();
 }
 
-class _AddCourseScreenState extends State<AddCourseScreen> {
+class _EditCourseScreenState extends State<EditCourseScreen> {
   final _formKey = GlobalKey<FormState>();
   final CourseService _courseService = CourseService();
   final UserService _userService = UserService();
@@ -25,78 +25,12 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   String _courseName = '';
   String _courseDescription = '';
   final List<Module> _modules = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Ajouter un cours'),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _saveCourse,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Enregistrer'),
-          ),
-        ],
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Nom du cours',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer un nom';
-                  }
-                  return null;
-                },
-                onChanged: (value) => _courseName = value,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Description du cours',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer une description';
-                  }
-                  return null;
-                },
-                onChanged: (value) => _courseDescription = value,
-              ),
-              const SizedBox(height: 24),
-              Text('Modules', style: Theme.of(context).textTheme.titleLarge),
-              ..._buildModulesList(),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _addModule,
-                child: const Text('Ajouter un module'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _loadCourseData();
   }
 
   void _addModule() {
@@ -163,6 +97,143 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     }).toList();
   }
 
+  Future<void> _loadCourseData() async {
+    try {
+      // Charger les données du cours existant
+      final courseData = await _courseService.getCourseById(widget.courseId);
+      setState(() {
+        _courseName = courseData['name'];
+        _courseDescription = courseData['description'];
+        _modules.addAll((courseData['modules'] as List)
+            .map((module) => Module.fromJson(module)));
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Erreur lors du chargement du cours: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de chargement: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateCourse() async {
+    try {
+      if (!_formKey.currentState!.validate()) return;
+
+      setState(() => _isLoading = true);
+
+      final userId = await _userService.getCurrentUserId();
+
+      // Mettre à jour le cours
+      await _courseService.updateCourseWithModules(
+        courseId: widget.courseId,
+        name: _courseName,
+        description: _courseDescription,
+        createdBy: userId,
+        modules: _modules,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cours mis à jour avec succès')),
+      );
+
+      Navigator.pushReplacementNamed(context, '/admin/courses');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Utiliser le même layout que AddCourseScreen
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Modifier le cours'),
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : _updateCourse,
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Enregistrer'),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                initialValue: _courseName,
+                decoration: const InputDecoration(
+                  labelText: 'Nom du cours',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer un nom';
+                  }
+                  return null;
+                },
+                onChanged: (value) => _courseName = value,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _courseDescription,
+                decoration: const InputDecoration(
+                  labelText: 'Description du cours',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer une description';
+                  }
+                  return null;
+                },
+                onChanged: (value) => _courseDescription = value,
+              ),
+              const SizedBox(height: 24),
+              Text('Modules', style: Theme.of(context).textTheme.titleLarge),
+              ..._buildModulesList(),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _addModule,
+                child: const Text('Ajouter un module'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuizSection(Module module) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,124 +295,6 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         ),
       ],
     );
-  }
-
-  Future<void> _saveCourse() async {
-    try {
-      // 1. Validation initiale
-      if (!_formKey.currentState!.validate()) {
-        print('Validation du formulaire échouée');
-        return;
-      }
-
-      if (_courseName.trim().isEmpty || _courseDescription.trim().isEmpty) {
-        throw Exception('Le nom et la description du cours sont requis');
-      }
-
-      if (_modules.isEmpty) {
-        throw Exception('Veuillez ajouter au moins un module');
-      }
-
-      // 2. Activer l'indicateur de chargement
-      setState(() => _isLoading = true);
-
-      // 3. Préparation et validation des données
-      final userId = await _userService.getCurrentUserId();
-      final courseId = const Uuid().v4();
-      print('Préparation du cours avec ID: $courseId');
-
-      for (final module in _modules) {
-        if (module.name.trim().isEmpty) {
-          throw Exception('Le nom du module est requis');
-        }
-
-        // Assigner les IDs
-        module.id = const Uuid().v4();
-        module.courseId = courseId;
-        print('Traitement du module: ${module.name}');
-
-        // Traitement des quiz
-        for (final quiz in module.quizzes) {
-          if (quiz.title.trim().isEmpty) {
-            throw Exception('Le titre du quiz est requis');
-          }
-
-          quiz.id = const Uuid().v4();
-          quiz.moduleId = module.id;
-          print('Traitement du quiz: ${quiz.title}');
-
-          // Validation des questions
-          for (final question in quiz.questions) {
-            if (question.questionText.trim().isEmpty) {
-              throw Exception('Le texte de la question est requis');
-            }
-
-            question.id = const Uuid().v4();
-            question.quizId = quiz.id;
-          }
-        }
-
-        // Traitement des TPs
-        for (final tp in module.tps) {
-          if (tp.title.trim().isEmpty) {
-            throw Exception('Le titre du TP est requis');
-          }
-
-          tp.id = const Uuid().v4();
-          tp.moduleId = module.id;
-          print('Traitement du TP: ${tp.title}');
-        }
-      }
-
-      // 4. Sauvegarde des données
-      print('Début de la sauvegarde du cours');
-      await _courseService.createCourseWithModules(
-        name: _courseName,
-        description: _courseDescription,
-        createdBy: userId,
-        modules: _modules,
-      );
-      print('Cours sauvegardé avec succès');
-
-      // 5. Vérification du montage du widget
-      if (!mounted) {
-        print('Widget non monté, arrêt de la procédure');
-        return;
-      }
-
-      // 6. Affichage du message de succès
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cours créé avec succès'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      // 7. Navigation sécurisée
-      if (mounted) {
-        Navigator.pushReplacementNamed(
-            context, '/admin/courses'); // Simplifié pour plus de robustesse
-      }
-    } catch (e) {
-      print('Erreur lors de la sauvegarde: $e');
-
-      // Gestion des erreurs uniquement si le widget est toujours monté
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      // Désactiver l'indicateur de chargement si le widget est toujours monté
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
   }
 }
 

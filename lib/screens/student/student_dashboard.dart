@@ -127,7 +127,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   ),
                 ),
 
-                Expanded(
+                /* Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
@@ -186,7 +186,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       ],
                     ),
                   ),
-                ),
+                ), */
               ],
             );
           },

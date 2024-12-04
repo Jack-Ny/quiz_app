@@ -69,10 +69,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Si "Se souvenir de moi" est coché
       if (_rememberMe) {
-        // TODO: Implementer la persistance des credentials
-        // Vous pouvez utiliser shared_preferences ici
+        // TODO: Implémenter la persistance des credentials
+        // Utilisation de shared_preferences pour stocker l'email, etc.
       }
 
       // Naviguer vers la page appropriée
@@ -97,7 +96,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Le reste de votre UI reste identique
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -112,7 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 40),
-                  // Logo et titre
                   Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -269,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                         },
                         child: const Text(
-                          'Mot de passe oublie ?',
+                          'Mot de passe oublié ?',
                           style: TextStyle(color: Colors.grey),
                         ),
                       ),

@@ -68,7 +68,8 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pushReplacementNamed(context, '/student-dashboard'),
+          onPressed: () =>
+              Navigator.pushReplacementNamed(context, '/student-dashboard'),
         ),
         title: const Text(
           'Mes Cours',
@@ -181,13 +182,13 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> {
                     const Spacer(),
 
                     // Nombre d'élèves inscrits
-                    Row(
+                    /* Row(
                       children: [
                         const Icon(Icons.people, size: 16),
                         const SizedBox(width: 4),
                         Text('$enrollmentsCount élèves'),
                       ],
-                    ),
+                    ), */
                   ],
                 ),
 

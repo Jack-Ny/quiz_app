@@ -1,14 +1,69 @@
 import 'dart:io' as io;
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:app_school/models/module.dart';
 import 'package:app_school/services/auth_service.dart';
+import 'package:file_picker/file_picker.dart';
 import 'module_service.dart';
 import '../config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show File, FileOptions;
+import 'package:flutter/foundation.dart';
 
 class CourseService {
   final _supabase = SupabaseConfig.client;
   final AuthService _authService = AuthService();
   late final ModuleService _moduleService;
+
+  // get course by ID
+  Future<Map<String, dynamic>> getCourseById(String courseId) async {
+    try {
+      final courseData = await _supabase.from('courses').select('''
+          *,
+          modules:modules (
+            id,
+            name,
+            description,
+            order_index,
+            is_active,
+            created_at,
+            updated_at,
+            quizzes:quizzes (
+              id,
+              title,
+              time_limit,
+              time_unit,
+              passing_score,
+              is_active,
+              created_at,
+              questions:questions (
+                id,
+                question_text,
+                question_type,
+                answer,
+                points,
+                choices,
+                created_at
+              )
+            ),
+            tps:tps (
+              id,
+              title,
+              description,
+              due_date,
+              max_points,
+              is_active,
+              created_at,
+              file_urls
+            )
+          )
+        ''').eq('id', courseId).single();
+
+      return courseData;
+    } catch (e) {
+      print('Erreur lors de la récupération du cours: $e');
+      throw Exception('Impossible de charger le cours');
+    }
+  }
 
   // Récupérer tous les cours
   Future<List<Map<String, dynamic>>> getAllCourses() async {
@@ -141,13 +196,12 @@ class CourseService {
           // Upload des fichiers si présents
           if (tp.files != null && tp.files!.isNotEmpty) {
             for (var file in tp.files!) {
-              final fileExt = file.path.split('.').last;
+              final fileExt = file.name.split('.').last;
               final fileName =
-                  '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
+                  '${DateTime.now().millisecondsSinceEpoch}_${file.name.split('/').last}';
               final filePath = 'tps/$fileName';
 
               try {
-                // Upload du fichier
                 await uploadFile(filePath, file);
 
                 // Récupération de l'URL publique
@@ -274,9 +328,9 @@ class CourseService {
             // Gérer nouveaux fichiers
             if (tp.files != null && tp.files!.isNotEmpty) {
               for (var file in tp.files!) {
-                final fileExt = file.path.split('.').last;
+                final fileExt = file.path?.split('.').last;
                 final fileName =
-                    '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
+                    '${DateTime.now().millisecondsSinceEpoch}_${file.path?.split('/').last}';
                 final filePath = 'tps/$fileName';
 
                 try {
@@ -353,15 +407,34 @@ class CourseService {
   }
 
   // Uploader un fichier
-  Future<void> uploadFile(String filePath, io.File ioFile) async {
-    final bytes = await ioFile.readAsBytes();
+  Future<void> uploadFile(String filePath, PlatformFile file) async {
+    try {
+      Uint8List? bytes;
 
-    await _supabase.storage.from('tp_files').uploadBinary(
-          filePath,
-          bytes,
-          fileOptions: const FileOptions(
-            contentType: 'application/octet-stream',
-          ),
-        );
+      // Pour le web, utilisez directement les bytes
+      if (kIsWeb && file.bytes != null) {
+        bytes = file.bytes;
+      }
+
+      // Pour les autres plateformes, lisez les bytes du fichier
+      else if (!kIsWeb && file.path != null) {
+        bytes = await io.File(file.path!).readAsBytes();
+      } else {
+        throw Exception('Impossible de lire le fichier sur cette plateforme.');
+      }
+
+      await _supabase.storage.from('tp_files').uploadBinary(
+            filePath,
+            bytes!,
+            fileOptions: const FileOptions(
+              contentType: 'application/octet-stream',
+              upsert: true,
+            ),
+          );
+      print('Fichier uploadé avec succès !');
+    } catch (e) {
+      print('Détails de l\'erreur d\'upload : $e');
+      rethrow;
+    }
   }
 }

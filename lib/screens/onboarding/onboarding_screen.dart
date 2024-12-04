@@ -41,8 +41,10 @@ class OnboardingScreen extends StatelessWidget {
             ),
 
             // Contenu principal
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: screenSize.width *
+                      0.08), // Ajuste l'espacement horizontal
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -50,18 +52,22 @@ class OnboardingScreen extends StatelessWidget {
                   Text(
                     'Quizz & TP en ligne',
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: screenSize.width *
+                          0.08, // Taille de police proportionnelle
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1E1E1E),
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(
+                      height:
+                          screenSize.height * 0.03), // Espacement proportionnel
                   // Sous-titre
                   Text(
-                    'Ameliorez vos competences en faisant nos differentes quizz et TP .',
+                    'Améliorez vos compétences en faisant nos différents quizz et TP.',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: screenSize.width *
+                          0.05, // Taille de police proportionnelle
                       color: Colors.grey,
                       height: 1.5,
                     ),
@@ -77,7 +83,9 @@ class OnboardingScreen extends StatelessWidget {
               left: 0,
               right: 0,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(
+                    horizontal: screenSize.width *
+                        0.08), // Ajuste l'espacement horizontal
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

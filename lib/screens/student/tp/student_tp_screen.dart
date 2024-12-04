@@ -38,106 +38,103 @@ class _StudentTPScreenState extends State<StudentTPScreen> {
   }
 
   Future<void> _submitTP() async {
-  try {
-    if (_selectedFiles.isEmpty) {
-      throw Exception('Veuillez ajouter au moins un fichier');
-    }
+    try {
+      if (_selectedFiles.isEmpty) {
+        throw Exception('Veuillez ajouter au moins un fichier');
+      }
 
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('connected_user_id');
-    if (userId == null) throw Exception('Utilisateur non connecté');
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('connected_user_id');
+      if (userId == null) throw Exception('Utilisateur non connecté');
 
-    final studentData = await _supabase
-        .from('students')
-        .select('id')
-        .eq('user_id', userId)
-        .single();
+      final studentData = await _supabase
+          .from('students')
+          .select('id')
+          .eq('user_id', userId)
+          .single();
 
-    // Liste pour stocker les URLs des fichiers uploadés
-    final uploadedFiles = [];
+      // Liste pour stocker les URLs des fichiers uploadés
+      final uploadedFiles = [];
 
-    // Upload chaque fichier
-    for (var file in _selectedFiles) {
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
-      final filePath = 'submissions/${widget.tpId}/$fileName';
-      
-      // Upload le fichier
-      await _supabase.storage
-          .from('tp-submissions') // Assurez-vous que ce bucket existe dans Supabase
-          .uploadBinary(filePath, file.bytes!);
+      // Upload chaque fichier
+      for (var file in _selectedFiles) {
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+        final filePath = 'submissions/${widget.tpId}/$fileName';
 
-      // Obtenir l'URL publique
-      final fileUrl = _supabase.storage
-          .from('tp-submissions')
-          .getPublicUrl(filePath);
+        // Upload le fichier
+        await _supabase.storage
+            .from('tp-submissions')
+            .uploadBinary(filePath, file.bytes!);
 
-      uploadedFiles.add({
-        'name': file.name,
-        'size': file.size,
-        'url': fileUrl
+        // Obtenir l'URL publique
+        final fileUrl =
+            _supabase.storage.from('tp-submissions').getPublicUrl(filePath);
+
+        uploadedFiles
+            .add({'name': file.name, 'size': file.size, 'url': fileUrl});
+      }
+
+      // Créer la soumission
+      await _supabase.from('tp_submissions').upsert({
+        'tp_id': widget.tpId,
+        'student_id': studentData['id'],
+        'submitted_files': uploadedFiles,
+        'comment': _commentController.text,
+        'submission_date': DateTime.now().toIso8601String(),
       });
-    }
 
-    // Créer la soumission
-    await _supabase.from('tp_submissions').upsert({
-      'tp_id': widget.tpId,
-      'student_id': studentData['id'],
-      'submitted_files': uploadedFiles,
-      'comment': _commentController.text,
-      'submission_date': DateTime.now().toIso8601String(),
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('TP soumis avec succès'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context);
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('TP soumis avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
     }
   }
-}
 
   // Pour le launchUrl, ajouter cette méthode
-Future<void> _launchUrl(String url) async {
-  if (await canLaunchUrlString(url)) {
-    await launchUrlString(url);
-  } else {
-    if (mounted) {
+  Future<void> _launchUrl(String url) async {
+    if (await canLaunchUrlString(url)) {
+      await launchUrlString(url);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ouvrir le fichier')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'],
+        withData: true, // Important pour récupérer les bytes
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedFiles.addAll(result.files);
+        });
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible d\'ouvrir le fichier')),
+        SnackBar(content: Text('Erreur lors de la sélection: $e')),
       );
     }
   }
-}
-
-Future<void> _pickFile() async {
-  try {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'],
-      withData: true, // Important pour récupérer les bytes
-    );
-
-    if (result != null) {
-      setState(() {
-        _selectedFiles.addAll(result.files);
-      });
-    }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Erreur lors de la sélection: $e')),
-    );
-  }
-}
 
   Future<void> _loadTPData() async {
     try {
@@ -151,15 +148,12 @@ Future<void> _pickFile() async {
           .select('id')
           .eq('user_id', userId)
           .single();
-      
+
       final studentId = studentData['id'];
 
       // Load TP data
-      final tpData = await _supabase
-          .from('tps')
-          .select()
-          .eq('id', widget.tpId)
-          .single();
+      final tpData =
+          await _supabase.from('tps').select().eq('id', widget.tpId).single();
 
       // Check for existing submission
       final submissions = await _supabase
@@ -201,14 +195,13 @@ Future<void> _pickFile() async {
     }
   }
 
-
   Future<void> _uploadFile(PlatformFile file) async {
     try {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
-      final filePath = 'tp_submissions/${widget.tpId}/$fileName';
-      
+      final filePath = 'submissions/${widget.tpId}/$fileName';
+
       await _supabase.storage
-          .from('tp-files')
+          .from('tp-submissions')
           .uploadBinary(filePath, file.bytes!);
 
       setState(() {
@@ -218,7 +211,6 @@ Future<void> _pickFile() async {
       throw Exception('Erreur upload: $e');
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -274,13 +266,15 @@ Future<void> _pickFile() async {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
-                  children: teacherFiles.map((file) => ListTile(
-                    leading: const Icon(Icons.file_present),
-                    title: Text(file),
-                    onTap: () => _launchUrl(_supabase.storage
-    .from('tp-files')
-    .getPublicUrl(file)),
-                  )).toList(),
+                  children: teacherFiles
+                      .map((file) => ListTile(
+                            leading: const Icon(Icons.file_present),
+                            title: Text(file),
+                            onTap: () => _launchUrl(_supabase.storage
+                                .from('tp_files')
+                                .getPublicUrl(file)),
+                          ))
+                      .toList(),
                 ),
               ),
             ],

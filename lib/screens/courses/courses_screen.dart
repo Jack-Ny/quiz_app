@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/colors.dart';
 import '../../services/course_service.dart';
 import 'course_students_screen.dart';
+import 'edit_course_screen.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
@@ -84,6 +85,15 @@ class _CoursesScreenState extends State<CoursesScreen> {
     } else if (index == 4) {
       Navigator.pushReplacementNamed(context, '/admin/profile');
     }
+  }
+
+  void _navigateToEditCourse(String courseId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditCourseScreen(courseId: courseId),
+      ),
+    );
   }
 
   @override
@@ -356,7 +366,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: () => _showEditCourseDialog(course),
+                      onPressed: () => _navigateToEditCourse(course['id']),
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.primaryBlue,
                       ),
