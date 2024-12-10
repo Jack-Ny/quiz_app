@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io' as io;
+import 'dart:io';
 import '../config/supabase_config.dart';
+import '../models/module.dart';
 
 class TeacherService {
   final _supabase = SupabaseConfig.client;
@@ -161,6 +167,187 @@ class TeacherService {
     } catch (e) {
       print('Erreur lors de la notation du TP: $e');
       throw e;
+    }
+  }
+
+  // supprimer un cours
+  Future<void> deleteCourse(String courseId) async {
+    try {
+      await _supabase.from('courses').delete().eq('id', courseId);
+    } catch (e) {
+      throw Exception('Erreur lors de la suppression du cours: $e');
+    }
+  }
+
+  // creer un cours
+  Future<Map<String, dynamic>> createCourseWithModules({
+  required String name,
+  required String description, 
+  required String createdBy,
+  required List<Module> modules,
+}) async {
+  try {
+    // Créer le cours
+    final courseData = {
+      'name': name,
+      'description': description,
+      'created_by': createdBy,
+      'is_active': true,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    // Insérer le cours et obtenir la réponse
+    final courseResponse = await _supabase
+        .from('courses')
+        .insert(courseData)
+        .select()
+        .single();
+
+    if (courseResponse == null) {
+      throw Exception('Échec de la création du cours');
+    }
+
+    final courseId = courseResponse['id'];
+
+    // Créer la relation professeur-cours
+    await _supabase.from('teacher_courses').insert({
+      'teacher_id': createdBy,
+      'course_id': courseId,
+    });
+
+    // Créer les modules associés
+    for (var module in modules) {
+      final moduleData = {
+        'course_id': courseId,
+        'name': module.name,
+        'description': module.description,
+        'order_index': module.orderIndex,
+        'is_active': module.isActive
+      };
+
+      final moduleResponse = await _supabase
+          .from('modules')
+          .insert(moduleData)
+          .select()
+          .single();
+
+      if (moduleResponse == null) {
+        throw Exception('Échec de la création du module');
+      }
+
+      final moduleId = moduleResponse['id'];
+
+      // Créer les quiz associés
+      for (var quiz in module.quizzes) {
+        final quizData = {
+          'module_id': moduleId,
+          'title': quiz.title,
+          'time_limit': quiz.timeLimit,
+          'time_unit': quiz.timeUnit,
+          'passing_score': quiz.passingScore,
+          'is_active': quiz.isActive,
+        };
+
+        final quizResponse = await _supabase
+            .from('quizzes')
+            .insert(quizData)
+            .select()
+            .single();
+
+        if (quizResponse == null) {
+          throw Exception('Échec de la création du quiz');
+        }
+
+        final quizId = quizResponse['id'];
+
+        // Créer les questions associées
+        for (var question in quiz.questions) {
+          final questionData = {
+            'quiz_id': quizId,
+            'question_text': question.questionText,
+            'question_type': question.questionType,
+            'answer': question.answer,
+            'points': question.points,
+            'choices': question.choices,
+          };
+          await _supabase.from('questions').insert(questionData);
+        }
+      }
+
+      // Créer les TPs
+      for (var tp in module.tps) {
+        List<String> uploadedUrls = [];
+        
+        // Upload des fichiers si présents
+        if (tp.files != null && tp.files!.isNotEmpty) {
+          for (var file in tp.files!) {
+            final fileName = 
+                '${DateTime.now().millisecondsSinceEpoch}_${file.name.split('/').last}';
+            final filePath = 'tps/$fileName';
+
+            try {
+              await uploadFile(filePath, file);
+              final fileUrl = _supabase.storage
+                  .from('tp_files')
+                  .getPublicUrl(filePath);
+              uploadedUrls.add(fileUrl);
+            } catch (e) {
+              print('Erreur upload fichier: $e');
+              continue;
+            }
+          }
+        }
+
+        final tpData = {
+          'module_id': moduleId,
+          'title': tp.title,
+          'description': tp.description,
+          'due_date': tp.dueDate?.toIso8601String(),
+          'max_points': tp.maxPoints,
+          'is_active': tp.isActive,
+          'file_urls': uploadedUrls.isEmpty ? tp.fileUrls : uploadedUrls,
+        };
+
+        await _supabase.from('tps').insert(tpData);
+      }
+    }
+
+    return courseResponse;
+  } catch (e) {
+    throw Exception('Erreur lors de la création du cours: $e');
+  }
+}
+
+// Uploader un fichier
+  Future<void> uploadFile(String filePath, PlatformFile file) async {
+    try {
+      Uint8List? bytes;
+
+      // Pour le web, utilisez directement les bytes
+      if (kIsWeb && file.bytes != null) {
+        bytes = file.bytes;
+      }
+
+      // Pour les autres plateformes, lisez les bytes du fichier
+      else if (!kIsWeb && file.path != null) {
+        bytes = await io.File(file.path!).readAsBytes();
+      } else {
+        throw Exception('Impossible de lire le fichier sur cette plateforme.');
+      }
+
+      await _supabase.storage.from('tp_files').uploadBinary(
+            filePath,
+            bytes!,
+            fileOptions: const FileOptions(
+              contentType: 'application/octet-stream',
+              upsert: true,
+            ),
+          );
+      print('Fichier uploadé avec succès !');
+    } catch (e) {
+      print('Détails de l\'erreur d\'upload : $e');
+      rethrow;
     }
   }
 }

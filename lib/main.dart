@@ -1,3 +1,4 @@
+import 'package:app_school/screens/teacher/teacher_add_course_screen.dart';
 import 'package:app_school/screens/teacher/teacher_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +27,8 @@ import 'package:app_school/screens/xcode/xcode_screen.dart';
 import 'package:app_school/config/supabase_config.dart';
 import 'package:app_school/providers/auth_provider.dart';
 import 'package:app_school/constants/colors.dart';
+
+import 'screens/teacher/teacher_courses_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -148,6 +151,8 @@ class MyApp extends StatelessWidget {
           }, */
 
           '/teacher-dashboard': (context) => const TeacherDashboard(),
+          '/teacher/courses': (context) => const TeacherCoursesScreen(),
+          '/teacher/courses/add': (context) => const TeacherAddCourseScreen(),
         },
         onUnknownRoute: (settings) {
           return MaterialPageRoute(
