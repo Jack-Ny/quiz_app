@@ -3,11 +3,6 @@ plugins {
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
-    id 'com.chaquopy' version '14.0.3' apply true
-}
-
-dependencies {
-    implementation 'com.chaquopy:runtime:14.0.3'
 }
 
 android {
