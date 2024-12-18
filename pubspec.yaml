@@ -17,10 +17,12 @@ dependencies:
   file_picker: ^5.2.10
   sign_in_with_apple: ^5.0.0
   shared_preferences: ^2.2.2
-  uuid: ^4.0.0
+  uuid: ^3.0.7
   intl: ^0.18.0
   url_launcher: ^6.1.10
   webview_flutter: ^4.10.0
+  flython: ^0.2.0
+  path: ^1.8.0
 
 dev_dependencies:
   flutter_test:

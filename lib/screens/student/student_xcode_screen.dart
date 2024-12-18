@@ -1,8 +1,8 @@
+import 'package:app_school/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flython/flython.dart';
 import '../../config/jdoodle.dart';
 import '../../constants/colors.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class StudentXCodeScreen extends StatefulWidget {
   const StudentXCodeScreen({super.key});
@@ -13,6 +13,53 @@ class StudentXCodeScreen extends StatefulWidget {
 
 class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
   final int _selectedIndex = 2;
+  final TextEditingController _codeController = TextEditingController();
+  String _outputResult = '';
+  final Flython _flython = Flython();
+  final PythonCompiler _pythonCompiler = PythonCompiler();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePython();
+  }
+
+  Future<void> _initializePython() async {
+    try {
+      await _flython.initialize(
+        'python',
+        'main.py',
+        true,
+      );
+      print('Initialisation de Flython réussie');
+    } catch (e) {
+      print('Détails complets de l\'erreur : $e');
+      print('Trace de la pile : ${StackTrace.current}');
+      setState(() {
+        _outputResult = 'Erreur d\'initialisation : $e';
+      });
+    }
+  }
+
+  Future<void> _executePythonCode() async {
+    if (_codeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez saisir du code Python')),
+      );
+      return;
+    }
+
+    try {
+      final result = await _pythonCompiler.executeCode(_codeController.text);
+      setState(() {
+        _outputResult = result['output'] ?? 'Exécution terminée';
+      });
+    } catch (e) {
+      setState(() {
+        _outputResult = 'Erreur d\'exécution : $e';
+      });
+    }
+  }
 
   void _onBottomNavTap(int index) {
     if (_selectedIndex != index) {
@@ -54,77 +101,58 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Center(
-        child: Container(
-          padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Icône animée de code/développement
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(100),
+              // Zone de saisie de code
+              TextField(
+                controller: _codeController,
+                maxLines: 10,
+                decoration: InputDecoration(
+                  hintText: 'Saisissez votre code Python ici...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Icon(
-                  Icons.code,
-                  size: 100,
-                  color: AppColors.primaryBlue,
-                ),
-              ),
-              const SizedBox(height: 40),
-              // Texte "En cours de conception"
-              Text(
-                'En cours de conception',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
-                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              // Message explicatif
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  'Cette fonctionnalité sera bientôt disponible pour vous permettre de coder et tester vos programmes en temps réel.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    height: 1.5,
+
+              // Bouton d'exécution
+              ElevatedButton(
+                onPressed: _executePythonCode,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  textAlign: TextAlign.center,
+                ),
+                child: const Text(
+                  'Exécuter le code',
+                  style: TextStyle(fontSize: 18),
                 ),
               ),
-              const SizedBox(height: 40),
-              // Indicateur de travail en cours
+
+              const SizedBox(height: 16),
+
+              // Zone de résultat
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(50),
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.engineering,
-                      color: Colors.amber[700],
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Développement en cours',
-                      style: TextStyle(
-                        color: Colors.amber[700],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  _outputResult.isEmpty
+                      ? 'Les résultats s\'afficheront ici'
+                      : _outputResult,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: _outputResult.isEmpty ? Colors.grey : Colors.black,
+                  ),
                 ),
               ),
             ],
@@ -146,5 +174,15 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
         ],
       ),
     );
+  }
+}
+
+// Classe personnalisée pour l'exécution de Python
+class PythonCompiler extends Flython {
+  static const int CMD_EXECUTE_CODE = 1;
+
+  Future<dynamic> executeCode(String pythonCode) async {
+    var command = {"cmd": CMD_EXECUTE_CODE, "code": pythonCode};
+    return await runCommand(command);
   }
 }
