@@ -8,7 +8,6 @@ import 'dart:convert';
 import '../../constants/colors.dart';
 import 'package:flutter_highlight/themes/monokai.dart';
 
-
 class StudentXCodeScreen extends StatefulWidget {
   const StudentXCodeScreen({super.key});
 
@@ -33,13 +32,13 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
   @override
   void initState() {
     super.initState();
-     _codeController = CodeController(
+    _codeController = CodeController(
       text: '',
       language: allLanguages["python"],
       patternMap: vsTheme,
     );
   }
-  
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -56,7 +55,8 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
       final response = await http.post(
         Uri.parse('https://online-code-compiler.p.rapidapi.com/v1/'),
         headers: {
-          'X-RapidAPI-Key': 'a2394e3d71msh5fb5bf71f03db37p107ca3jsn09fb71304518',
+          'X-RapidAPI-Key':
+              'a2394e3d71msh5fb5bf71f03db37p107ca3jsn09fb71304518',
           'X-RapidAPI-Host': 'online-code-compiler.p.rapidapi.com',
           'Content-Type': 'application/json',
         },
@@ -93,7 +93,8 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
     if (newLanguage != null) {
       setState(() {
         _selectedLanguage = newLanguage;
-        _codeController.language = allLanguages[newLanguage.replaceAll('3', '')];
+        _codeController.language =
+            allLanguages[newLanguage.replaceAll('3', '')];
       });
     }
   }
@@ -141,7 +142,7 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWideScreen = constraints.maxWidth > 900;
-          
+
           return Row(
             children: [
               Expanded(
@@ -156,7 +157,8 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF333333),
                                 borderRadius: BorderRadius.circular(8),
@@ -199,12 +201,13 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.play_arrow),
-                            label: Text(_isLoading ? 'Exécution...' : 'Exécuter'),
+                            label:
+                                Text(_isLoading ? 'Exécution...' : 'Exécuter'),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Code editor
                       Expanded(
                         child: Container(
@@ -222,7 +225,7 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
                           ),
                         ),
                       ),
-                      
+
                       if (!isWideScreen) ...[
                         const SizedBox(height: 16),
                         // Output section for mobile/narrow screens
