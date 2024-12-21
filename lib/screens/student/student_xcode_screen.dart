@@ -1,8 +1,13 @@
-import 'package:app_school/main.dart';
 import 'package:flutter/material.dart';
-import 'package:flython/flython.dart';
-import '../../config/jdoodle.dart';
+import 'package:code_text_field/code_text_field.dart';
+import 'package:highlight/highlight.dart';
+import 'package:highlight/languages/all.dart';
+import 'package:flutter_highlight/themes/vs.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../constants/colors.dart';
+import 'package:flutter_highlight/themes/monokai.dart';
+
 
 class StudentXCodeScreen extends StatefulWidget {
   const StudentXCodeScreen({super.key});
@@ -13,50 +18,82 @@ class StudentXCodeScreen extends StatefulWidget {
 
 class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
   final int _selectedIndex = 2;
-  final TextEditingController _codeController = TextEditingController();
+  late CodeController _codeController;
   String _outputResult = '';
-  final Flython _flython = Flython();
-  final PythonCompiler _pythonCompiler = PythonCompiler();
+  String _selectedLanguage = 'python3';
+  bool _isLoading = false;
+
+  final Map<String, String> languageOptions = {
+    'python3': 'Python',
+    'java': 'Java',
+    'c': 'C',
+    'php': 'PHP',
+  };
 
   @override
   void initState() {
     super.initState();
-    _initializePython();
+     _codeController = CodeController(
+      text: '',
+      language: allLanguages["python"],
+      patternMap: vsTheme,
+    );
+  }
+  
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
   }
 
-  Future<void> _initializePython() async {
+  Future<void> _executeCode() async {
+    setState(() {
+      _isLoading = true;
+      _outputResult = 'Exécution en cours...';
+    });
+
     try {
-      await _flython.initialize(
-        'python',
-        'main.py',
-        true,
+      final response = await http.post(
+        Uri.parse('https://online-code-compiler.p.rapidapi.com/v1/'),
+        headers: {
+          'X-RapidAPI-Key': 'a2394e3d71msh5fb5bf71f03db37p107ca3jsn09fb71304518',
+          'X-RapidAPI-Host': 'online-code-compiler.p.rapidapi.com',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'language': _selectedLanguage,
+          'version': 'latest',
+          'code': _codeController.text,
+          'input': null,
+        }),
       );
-      print('Initialisation de Flython réussie');
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        setState(() {
+          _outputResult = result['output'] ?? 'Aucune sortie';
+        });
+      } else {
+        setState(() {
+          _outputResult = 'Erreur lors de l\'exécution: ${response.statusCode}';
+        });
+      }
     } catch (e) {
-      print('Détails complets de l\'erreur : $e');
-      print('Trace de la pile : ${StackTrace.current}');
       setState(() {
-        _outputResult = 'Erreur d\'initialisation : $e';
+        _outputResult = 'Erreur: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
 
-  Future<void> _executePythonCode() async {
-    if (_codeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez saisir du code Python')),
-      );
-      return;
-    }
-
-    try {
-      final result = await _pythonCompiler.executeCode(_codeController.text);
+  void _changeLanguage(String? newLanguage) {
+    if (newLanguage != null) {
       setState(() {
-        _outputResult = result['output'] ?? 'Exécution terminée';
-      });
-    } catch (e) {
-      setState(() {
-        _outputResult = 'Erreur d\'exécution : $e';
+        _selectedLanguage = newLanguage;
+        _codeController.language = allLanguages[newLanguage.replaceAll('3', '')];
       });
     }
   }
@@ -83,86 +120,184 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1E1E1E),
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () =>
               Navigator.pushReplacementNamed(context, '/student-dashboard'),
         ),
         title: const Text(
-          'XCODE',
+          'XCODE Editor',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFF252526),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWideScreen = constraints.maxWidth > 900;
+          
+          return Row(
             children: [
-              // Zone de saisie de code
-              TextField(
-                controller: _codeController,
-                maxLines: 10,
-                decoration: InputDecoration(
-                  hintText: 'Saisissez votre code Python ici...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              Expanded(
+                flex: isWideScreen ? 2 : 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Language selector and Run button row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF333333),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedLanguage,
+                                  dropdownColor: const Color(0xFF333333),
+                                  style: const TextStyle(color: Colors.white),
+                                  items: languageOptions.entries
+                                      .map((e) => DropdownMenuItem(
+                                            value: e.key,
+                                            child: Text(e.value),
+                                          ))
+                                      .toList(),
+                                  onChanged: _changeLanguage,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          ElevatedButton.icon(
+                            onPressed: _isLoading ? null : _executeCode,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryBlue,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.play_arrow),
+                            label: Text(_isLoading ? 'Exécution...' : 'Exécuter'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Code editor
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E1E1E),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF333333)),
+                          ),
+                          child: CodeField(
+                            controller: _codeController,
+                            textStyle: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      if (!isWideScreen) ...[
+                        const SizedBox(height: 16),
+                        // Output section for mobile/narrow screens
+                        Container(
+                          height: 150,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF252526),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Text(
+                              _outputResult.isEmpty
+                                  ? 'Les résultats s\'afficheront ici'
+                                  : _outputResult,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // Bouton d'exécution
-              ElevatedButton(
-                onPressed: _executePythonCode,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              if (isWideScreen)
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF252526),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Console Output',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Text(
+                              _outputResult.isEmpty
+                                  ? 'Les résultats s\'afficheront ici'
+                                  : _outputResult,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: const Text(
-                  'Exécuter le code',
-                  style: TextStyle(fontSize: 18),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Zone de résultat
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _outputResult.isEmpty
-                      ? 'Les résultats s\'afficheront ici'
-                      : _outputResult,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: _outputResult.isEmpty ? Colors.grey : Colors.black,
-                  ),
-                ),
-              ),
             ],
-          ),
-        ),
+          );
+        },
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onBottomNavTap,
         type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color(0xFF252526),
         selectedItemColor: AppColors.primaryBlue,
         unselectedItemColor: Colors.grey,
         items: const [
@@ -174,15 +309,5 @@ class _StudentXCodeScreenState extends State<StudentXCodeScreen> {
         ],
       ),
     );
-  }
-}
-
-// Classe personnalisée pour l'exécution de Python
-class PythonCompiler extends Flython {
-  static const int CMD_EXECUTE_CODE = 1;
-
-  Future<dynamic> executeCode(String pythonCode) async {
-    var command = {"cmd": CMD_EXECUTE_CODE, "code": pythonCode};
-    return await runCommand(command);
   }
 }
