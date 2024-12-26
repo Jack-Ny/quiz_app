@@ -1,0 +1,27 @@
+L'API utiliser pour la compilation des codes dans la parie XCODE resulte d'une API sur RapidAPI.
+Le nom de l'API c'est Online Code Compiler. Il permet de compiler du code dans plus de 75 languages.
+Voici le lien de l'API. "https://rapidapi.com/Glavier/api/online-code-compiler".
+Sa version gratuite permet de lancer 1000 requete par heure. Mais on peut augmenter ca en prenant un paiement par mois (PRO, Ultra, Mega)
+
+Voici comment se presente les requete:
+    - Y'a une requete GET qui permet d'avoir le language ex :
+    {
+    "id": "python3",
+    "name": "Python 3",
+    "versions": [
+      "3.5.1",
+      " 3.6.3",
+      "3.6.5",
+      "3.7.4",
+      "3.9.9"
+    ]
+  },
+
+  - la requete POST qui permet de compiler le code entrer. Voici comment elle se presente
+  {
+  "language": "python3", --> language
+  "version": "latest", --> version du language
+  "code": "print(\"Hello, World!\");", --> le code a compiler
+  "input": null --> donnees dentree de l'API. Elle est sur null cequi signifie que ya pas d'entree attendue
+}
+    

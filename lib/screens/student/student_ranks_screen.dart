@@ -66,7 +66,7 @@ class _StudentRanksScreenState extends State<StudentRanksScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () =>
-              Navigator.pushReplacementNamed(context, '/admin-dashboard'),
+              Navigator.pushReplacementNamed(context, '/student-dashboard'),
         ),
         title: const Text(
           'Classement',
